@@ -2,6 +2,14 @@
 
 Authorized Active Directory assessment tool for identifying NTLM relay exposure, performing controlled relay testing, and generating remediation reports.
 
+## Description
+
+AutoRelay helps security teams assess NTLM relay exposure in Active Directory environments before performing controlled security tests.
+
+The tool performs preflight checks, identifies relevant security weaknesses and coercion vectors, orchestrates controlled relay testing, records activity, and generates remediation guidance.
+
+AutoRelay is designed for authorized security assessments and controlled laboratory environments.
+
 ## Features
 
 - NTLM relay preflight assessment
