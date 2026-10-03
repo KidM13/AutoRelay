@@ -31,3 +31,10 @@ post/           # Opt-in post-exploitation actions
 report/         # Findings and remediation reports
 util/           # Shared utilities
 tests/          # Tests and fixtures
+```
+## Authorization
+
+AutoRelay is intended only for authorized security assessments and controlled laboratory environments.
+
+Do not use this tool against systems without explicit authorization.
+
