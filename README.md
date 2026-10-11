@@ -32,6 +32,16 @@ report/         # Findings and remediation reports
 util/           # Shared utilities
 tests/          # Tests and fixtures
 ```
+## Documentation
+
+Project documentation is maintained in the `docs/` directory.
+
+- **SRS** — Project requirements, scope, and acceptance criteria.
+- **Architecture** — System design, component responsibilities, and data flow.
+- **Module Interfaces** — Function contracts and communication between modules.
+- **Contributing** — Branching strategy, pull requests, and development guidelines.
+
+See the relevant documents in `docs/` before implementing or modifying a module.
 ## Authorization
 
 AutoRelay is intended only for authorized security assessments and controlled laboratory environments.
