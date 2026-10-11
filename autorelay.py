@@ -76,8 +76,3 @@ def main():
 if __name__ == "__main__":
     sys.exit(main())
 
-
-    
-    print(f"running preflight assesment for {args.target}")
-    # module integration will be added when teammates does their function
-    return 0
