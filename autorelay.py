@@ -21,7 +21,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from config import ConfigError, ScopeViolation, build_profile_from_args
+from config import ConfigError, ScopeViolation, build_profile_from_args,enforce_scope
 from preflight import run as run_preflight
 from util import log as log_setup
 from util.net import parse_targets
@@ -105,6 +105,26 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "modules",
         help="List registered coercion modules",
+    )
+        # --- run-module ---
+    run_module_parser = subparsers.add_parser(
+        "run-module",
+        help="Run a registered coercion module",
+    )
+    run_module_parser.add_argument(
+        "--module",
+        required=True,
+        help="Name of the registered module",
+    )
+    run_module_parser.add_argument(
+        "--target",
+        required=True,
+        help="Explicit target host",
+    )
+    run_module_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate the request without invoking the module",
     )
 
     return parser
@@ -208,6 +228,66 @@ def cmd_modules() -> int:
 
     return EXIT_OK
 
+def cmd_run_module(args: argparse.Namespace, profile) -> int:
+    """Validate and run a registered coercion module."""
+
+    # Check whether coercion is enabled in this profile.
+    if not profile.capabilities.coercion:
+        print(
+            "Error: coercion is disabled for this profile.",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG_ERROR
+
+    # Build the registry and find the requested module.
+    registry = build_registry()
+
+    try:
+        module = registry.create(args.module)
+    except KeyError:
+        available = ", ".join(registry.available()) or "(none)"
+        print(
+            f"Error: unknown module '{args.module}'. "
+            f"Available modules: {available}",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG_ERROR
+
+    # Enforce target scope when the profile requires it.
+    try:
+        enforce_scope(profile, args.target, "coercion")
+    except ScopeViolation as e:
+        print(f"Scope violation: {e}", file=sys.stderr)
+        return EXIT_SCOPE_VIOLATION
+
+    # Dry-run validates the request but does not call module.run().
+    if args.dry_run:
+        print(
+            f"Dry run successful: module={module.name}, "
+            f"target={args.target}"
+        )
+        return EXIT_OK
+
+    # Invoke the module and report its result.
+    try:
+        result = module.run(args.target)
+    except Exception as e:
+        print(f"Module error: {e}", file=sys.stderr)
+        return EXIT_UNEXPECTED
+
+    status = {
+        True: "SUCCESS",
+        False: "FAILURE",
+        None: "UNKNOWN",
+    }[result.success]
+
+    print(f"Module:  {result.technique}")
+    print(f"Target:  {result.target}")
+    print(f"Status:  {status}")
+    print(f"Detail:  {result.detail}")
+
+    return EXIT_OK if result.success is not False else EXIT_UNEXPECTED
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -242,6 +322,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_preflight(args, profile)
     if args.command == "modules":
         return cmd_modules()
+    if args.command == "run-module":
+        return cmd_run_module(args, profile)
 
     parser.error(f"unknown command: {args.command}")
     return EXIT_UNEXPECTED
