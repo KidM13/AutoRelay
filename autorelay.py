@@ -26,6 +26,7 @@ from preflight import run as run_preflight
 from util import log as log_setup
 from util.net import parse_targets
 from coercion.registry import ModuleRegistry
+from coercion.loader import build_registry
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +195,7 @@ def cmd_preflight(args: argparse.Namespace, profile) -> int:
     return EXIT_OK
 
 def cmd_modules() -> int:
-    registry = ModuleRegistry()
+    registry = build_registry()
     modules = registry.available()
 
     if not modules:
