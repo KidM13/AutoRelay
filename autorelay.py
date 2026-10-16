@@ -25,6 +25,7 @@ from config import ConfigError, ScopeViolation, build_profile_from_args
 from preflight import run as run_preflight
 from util import log as log_setup
 from util.net import parse_targets
+from coercion.registry import ModuleRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,11 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument(
         "--quiet", action="store_true",
         help="Suppress console output of the report",
+    )
+        # --- modules ---
+    subparsers.add_parser(
+        "modules",
+        help="List registered coercion modules",
     )
 
     return parser
@@ -187,6 +193,20 @@ def cmd_preflight(args: argparse.Namespace, profile) -> int:
 
     return EXIT_OK
 
+def cmd_modules() -> int:
+    registry = ModuleRegistry()
+    modules = registry.available()
+
+    if not modules:
+        print("No coercion modules registered.")
+        return EXIT_OK
+
+    print("Available coercion modules:")
+    for name in modules:
+        print(f"  - {name}")
+
+    return EXIT_OK
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -219,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     # Dispatch
     if args.command == "preflight":
         return cmd_preflight(args, profile)
+    if args.command == "modules":
+        return cmd_modules()
 
     parser.error(f"unknown command: {args.command}")
     return EXIT_UNEXPECTED
