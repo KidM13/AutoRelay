@@ -190,17 +190,15 @@ def cmd_preflight(args: argparse.Namespace, profile) -> int:
 
     # Write reports if requested
     if args.report:
-        path = Path(args.report)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(report.render_markdown(), encoding="utf-8")
+        from report import write_markdown_report
+        path = write_markdown_report(report, args.report)
         log.info(f"markdown report written to {path}")
         if not args.quiet:
             print(f"\nMarkdown report: {path}")
 
     if args.json:
-        path = Path(args.json)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(report.to_json(), encoding="utf-8")
+        from report import write_json_report
+        path = write_json_report(report, args.json)
         log.info(f"json report written to {path}")
         if not args.quiet:
             print(f"JSON report:     {path}")
