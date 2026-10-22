@@ -15,6 +15,7 @@ class CoercionResult:
     detail: str
 
     def __post_init__(self) -> None:
+        """Validate fields after the dataclass is created."""
         if not isinstance(self.technique, str) or not self.technique.strip():
             raise ValueError("technique must be a non-empty string")
 
@@ -26,7 +27,6 @@ class CoercionResult:
 
         if not isinstance(self.detail, str):
             raise ValueError("detail must be a string")
- 
 
 class CoercionModule(ABC):
     """Common interface for all coercion modules."""
