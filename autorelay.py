@@ -21,57 +21,74 @@ import argparse
 import sys
 from pathlib import Path
 
-from config import ConfigError, ScopeViolation, build_profile_from_args,enforce_scope
-from preflight import run as run_preflight
-from util import log as log_setup
-from util.net import parse_targets
-from coercion.registry import ModuleRegistry
-from coercion.loader import build_registry
+
+def handle_preflight(args):
+    print(f"running preflight assesment for {args.target}..")
+    # module integration will be added when teammates does their function
+    return 0
+def handle_report(args):
+    """report will be generated from existing assesment"""
+    print(f"report input :{args.input}")
+    # report module will be integrated here 
+    return 0
+def handle_relay(args):
+    """Run either a local simulation or bounded protocol-security assessment."""
+    if args.mode == "assessment":
+        if not args.authorized_lab:
+            raise ValueError(
+                "active assessment requires --authorized-lab and private/lab IP targets"
+            )
+        from relay import RelayAssessmentConfig, assess_targets
+
+        findings = assess_targets(
+            RelayAssessmentConfig(
+                tuple(args.target),
+                timeout=args.timeout,
+                authorized_lab=True,
+                tls_ca_file=args.tls_ca_file,
+            )
+        )
+        print(
+            "Active assessment: service reachability, SMB signing, LDAP policy "
+            "evidence, and LDAPS TLS validation; no relay was performed."
+        )
+        for finding in findings:
+            evidence = finding["evidence"]
+            location = evidence["target"]
+            if "port" in evidence:
+                location = f"{location}:{evidence['port']}"
+            print(
+                f"{finding['status']} [{finding['severity']}] {finding['check_id']} "
+                f"({location}): "
+                f"{finding['details']}"
+            )
+            print(f"  Remediation: {finding['remediation']}")
+        return 0
+
+    from relay import RelayConfig, RelayServer
+
+    server = RelayServer(RelayConfig(relay_targets=tuple(args.target)))
+    try:
+        server.start()
+        session = server.simulate_session()
+        finding = session.results[0]
+        print(f"Simulation session {session.session_id}: {session.state.value}")
+        print("Simulation only: no network connections or real assessment were performed.")
+        print(f"{finding['status']}: {finding['details']}")
+        return 0
+    finally:
+        server.stop()
 
 
-# ---------------------------------------------------------------------------
-# Exit codes
-# ---------------------------------------------------------------------------
-
-EXIT_OK = 0
-EXIT_CONFIG_ERROR = 2
-EXIT_SCOPE_VIOLATION = 3
-EXIT_BLOCKERS = 4         # preflight ran, found blockers
-EXIT_UNEXPECTED = 5
-
-
-# ---------------------------------------------------------------------------
-# Argument parser
-# ---------------------------------------------------------------------------
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="autorelay",
-        description=(
-            "Authorized Active Directory assessment tool. "
-            "Stage 1: preflight viability checks for an NTLM relay chain."
-        ),
-        epilog=(
-            "Preflight is read-only. It performs no coercion, no relay, "
-            "and no authentication. Use --profile goad for lab testing "
-            "and --profile live --scope <file> for authorized engagements."
-        ),
+def build_parser():
+    parser=argparse.ArgumentParser(
+        prog="autorelay",#program name
+        description="Authorized Active Directory security assessment tool.",
     )
-    parser.add_argument(
-        "--profile", default=None,
-        help="Configuration profile: 'goad' (default) or 'live'",
-    )
-    parser.add_argument(
-        "--scope", default=None,
-        help="Path to scope file (required for 'live' profile)",
-    )
-    parser.add_argument(
-        "--yes", action="store_true",
-        help="Non-interactive (rejected in 'live' profile)",
-    )
-    parser.add_argument(
-        "--debug", action="store_true",
-        help="Force DEBUG logging regardless of profile",
+
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -116,15 +133,44 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Name of the registered module",
     )
-    run_module_parser.add_argument(
-        "--target",
-        required=True,
-        help="Explicit target host",
+    report_parser.set_defaults(handler=handle_report)
+
+    relay_parser = subparsers.add_parser(
+        "relay",
+        help="Simulate a session or assess authorized lab services and protocol security.",
     )
-    run_module_parser.add_argument(
-        "--dry-run",
+    relay_parser.add_argument(
+        "--target",
+        action="append",
+        required=True,
+        help="Explicit target (simulation identifier or private/lab IP for assessment); repeatable.",
+    )
+    relay_parser.add_argument(
+        "--mode",
+        choices=("simulation", "assessment"),
+        default="simulation",
+        help=(
+            "simulation uses no network; assessment checks TCP reachability, SMB signing, "
+            "LDAP policy evidence, and LDAPS TLS."
+        ),
+    )
+    relay_parser.add_argument(
+        "--authorized-lab",
         action="store_true",
-        help="Validate the request without invoking the module",
+        help="Confirm these private/lab targets are explicitly authorized (required for assessment).",
+    )
+    relay_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=1.0,
+        help="Per-connection timeout in seconds for assessment (maximum 3).",
+    )
+    relay_parser.add_argument(
+        "--tls-ca-file",
+        help=(
+            "Optional CA bundle added to the system trust store for LDAPS certificate "
+            "validation; verification remains enabled."
+        ),
     )
 
     return parser

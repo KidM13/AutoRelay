@@ -1,2 +1,1 @@
-impacket
-pytest>=9.0
+smbprotocol>=1.15.0,<2.0
