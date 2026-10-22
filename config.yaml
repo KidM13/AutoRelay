@@ -1,0 +1,95 @@
+# AutoRelay — profile configuration
+#
+# Two profiles: `goad` (development, no scope enforcement) and `live`
+# (production, scope-enforced). Selected via --profile on the CLI.
+#
+# Default profile is `goad` so a stray command never fires at something
+# real. Override with --profile live and --scope <file>.
+
+default_profile: goad
+
+profiles:
+
+  # ---------------------------------------------------------------
+  # GOAD — development lab
+  # ---------------------------------------------------------------
+  # No scope enforcement. Full attack capabilities enabled. Use only
+  # against a lab you control.
+  goad:
+    description: "GOAD lab — full capabilities, no scope enforcement"
+    mode: lab
+
+    # Capability toggles — what this profile is allowed to do
+    capabilities:
+      preflight: true
+      coercion: true
+      relay: true
+      post_exploitation: true
+
+    # Safety and confirmation
+    safety:
+      require_confirmation: false       # lab: no "are you sure" prompt
+      allow_yes_flag: true              # --yes accepted
+      hard_scope_enforcement: false     # no scope file needed
+      require_scope_file: false
+
+    # Timeouts (seconds)
+    timeouts:
+      tcp_connect: 3
+      smb_negotiate: 5
+      ldap_bind: 5
+      rpc_bind: 5
+      relay_session_wait: 120
+      coercion_retry_interval: 2
+
+    # Logging
+    logging:
+      level: DEBUG                      # verbose in lab
+      log_dir: logs/goad
+      console: true
+      file: true
+
+    # Output
+    output:
+      report_dir: reports/goad
+      color: true
+
+  # ---------------------------------------------------------------
+  # LIVE — authorized production engagement
+  # ---------------------------------------------------------------
+  # Requires a scope file. Refuses anything not explicitly authorized.
+  # Confirmation is mandatory on every offensive action; --yes is
+  # rejected.
+  live:
+    description: "Live engagement — scope-enforced, confirmation required"
+    mode: production
+
+    capabilities:
+      preflight: true
+      coercion: true
+      relay: true
+      post_exploitation: false          # opt-in per run via --post, not by default
+
+    safety:
+      require_confirmation: true        # always prompt
+      allow_yes_flag: false             # --yes rejected in live mode
+      hard_scope_enforcement: true      # scope file enforced
+      require_scope_file: true
+
+    timeouts:
+      tcp_connect: 5
+      smb_negotiate: 8
+      ldap_bind: 8
+      rpc_bind: 8
+      relay_session_wait: 180
+      coercion_retry_interval: 3
+
+    logging:
+      level: INFO                       # less noise in production
+      log_dir: logs/live
+      console: true
+      file: true
+
+    output:
+      report_dir: reports/live
+      color: true
