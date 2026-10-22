@@ -1,6 +1,7 @@
 import argparse
 import sys
 
+
 def handle_preflight(args):
     print(f"running preflight assesment for {args.target}..")
     # module integration will be added when teammates does their function
@@ -11,9 +12,54 @@ def handle_report(args):
     # report module will be integrated here 
     return 0
 def handle_relay(args):
-    """"placeholder for future controlled relay functionality"""
-    print("relay functionality is not implemented yet")
-    return 0
+    """Run either a local simulation or bounded protocol-security assessment."""
+    if args.mode == "assessment":
+        if not args.authorized_lab:
+            raise ValueError(
+                "active assessment requires --authorized-lab and private/lab IP targets"
+            )
+        from relay import RelayAssessmentConfig, assess_targets
+
+        findings = assess_targets(
+            RelayAssessmentConfig(
+                tuple(args.target),
+                timeout=args.timeout,
+                authorized_lab=True,
+                tls_ca_file=args.tls_ca_file,
+            )
+        )
+        print(
+            "Active assessment: service reachability, SMB signing, LDAP policy "
+            "evidence, and LDAPS TLS validation; no relay was performed."
+        )
+        for finding in findings:
+            evidence = finding["evidence"]
+            location = evidence["target"]
+            if "port" in evidence:
+                location = f"{location}:{evidence['port']}"
+            print(
+                f"{finding['status']} [{finding['severity']}] {finding['check_id']} "
+                f"({location}): "
+                f"{finding['details']}"
+            )
+            print(f"  Remediation: {finding['remediation']}")
+        return 0
+
+    from relay import RelayConfig, RelayServer
+
+    server = RelayServer(RelayConfig(relay_targets=tuple(args.target)))
+    try:
+        server.start()
+        session = server.simulate_session()
+        finding = session.results[0]
+        print(f"Simulation session {session.session_id}: {session.state.value}")
+        print("Simulation only: no network connections or real assessment were performed.")
+        print(f"{finding['status']}: {finding['details']}")
+        return 0
+    finally:
+        server.stop()
+
+
 def build_parser():
     parser=argparse.ArgumentParser(
         prog="autorelay",#program name
@@ -49,10 +95,42 @@ def build_parser():
     )
     report_parser.set_defaults(handler=handle_report)
 
-    # relay placeholder
     relay_parser = subparsers.add_parser(
         "relay",
-        help="Controlled relay testing (not yet implemented).",
+        help="Simulate a session or assess authorized lab services and protocol security.",
+    )
+    relay_parser.add_argument(
+        "--target",
+        action="append",
+        required=True,
+        help="Explicit target (simulation identifier or private/lab IP for assessment); repeatable.",
+    )
+    relay_parser.add_argument(
+        "--mode",
+        choices=("simulation", "assessment"),
+        default="simulation",
+        help=(
+            "simulation uses no network; assessment checks TCP reachability, SMB signing, "
+            "LDAP policy evidence, and LDAPS TLS."
+        ),
+    )
+    relay_parser.add_argument(
+        "--authorized-lab",
+        action="store_true",
+        help="Confirm these private/lab targets are explicitly authorized (required for assessment).",
+    )
+    relay_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=1.0,
+        help="Per-connection timeout in seconds for assessment (maximum 3).",
+    )
+    relay_parser.add_argument(
+        "--tls-ca-file",
+        help=(
+            "Optional CA bundle added to the system trust store for LDAPS certificate "
+            "validation; verification remains enabled."
+        ),
     )
     relay_parser.set_defaults(handler=handle_relay)
 
@@ -75,4 +153,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
