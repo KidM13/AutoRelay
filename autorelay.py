@@ -91,7 +91,6 @@ def build_parser():
         required=True,
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
 
     # --- preflight ---
     pf = subparsers.add_parser(
@@ -133,7 +132,7 @@ def build_parser():
         required=True,
         help="Name of the registered module",
     )
-    report_parser.set_defaults(handler=handle_report)
+    
 
     relay_parser = subparsers.add_parser(
         "relay",
