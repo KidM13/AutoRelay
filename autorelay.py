@@ -20,7 +20,18 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from config import build_profile_from_args, ConfigError
+from config import ScopeViolation, enforce_scope
+from util.net import parse_targets
+from coercion.loader import build_registry
+from util import log as log_setup
+from preflight import run
 
+EXIT_OK = 0
+EXIT_CONFIG_ERROR = 2
+EXIT_SCOPE_VIOLATION = 3
+EXIT_BLOCKERS = 4
+EXIT_UNEXPECTED = 5
 
 def handle_preflight(args):
     print(f"running preflight assesment for {args.target}..")
@@ -213,7 +224,7 @@ def cmd_preflight(args: argparse.Namespace, profile) -> int:
 
     # Run preflight. All timeouts come from the profile.
     try:
-        report = run_preflight(
+        report = run(
             target=target,
             relay_targets=relay_targets,
             profile_name=profile.name,
@@ -340,14 +351,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Load config + profile before anything else so errors are early.
+    # Relay manages its own configuration and does not require a profile.
+    if args.command == "relay":
+        try:
+            return handle_relay(args)
+        except ValueError as e:
+            print(f"configuration error: {e}", file=sys.stderr)
+            return EXIT_CONFIG_ERROR
+
+    # Other commands use the configured profile.
     try:
         profile = build_profile_from_args(args)
     except ConfigError as e:
         print(f"config error: {e}", file=sys.stderr)
         return EXIT_CONFIG_ERROR
 
-    # Set up logging according to the profile.
     level = "DEBUG" if args.debug else profile.logging.level
     log_path = log_setup.setup(
         log_dir=profile.logging.log_dir,
@@ -357,10 +375,11 @@ def main(argv: list[str] | None = None) -> int:
         color=profile.output.color,
     )
     log = log_setup.get_logger("autorelay.cli")
-    log.info(f"profile={profile.name} mode={profile.mode} "
-             f"log_file={log_path}")
+    log.info(
+        f"profile={profile.name} mode={profile.mode} "
+        f"log_file={log_path}"
+    )
 
-    # Dispatch
     if args.command == "preflight":
         return cmd_preflight(args, profile)
     if args.command == "modules":
@@ -370,7 +389,5 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.error(f"unknown command: {args.command}")
     return EXIT_UNEXPECTED
-
-
 if __name__ == "__main__":
     sys.exit(main())
