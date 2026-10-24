@@ -56,7 +56,7 @@ report/         # Findings and remediation reports
 util/           # Shared utilities
 tests/          # Tests and fixtures
 ```
-## Documentation
+
 
 ## Documentation
 
