@@ -20,7 +20,7 @@ It handles the entire orchestration process: from reconnaissance and vulnerabili
 
 ## Installation
 
-```bash
+
 # 1. Clone the repository
 git clone https://github.com/yourusername/autorelay.git
 cd autorelay
@@ -151,8 +151,6 @@ autorelay/
 ├── report/               # Markdown and HTML report generation
 └── util/                 # Logging, networking, and helpers
 
-
-See [Module Interfaces](docs/MODULE_INTERFACES.md#relay) for supported checks, finding interpretation, limits, and LDAP policy evidence requirements.
 
 ## Documentation
 
