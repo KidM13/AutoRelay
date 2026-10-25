@@ -94,6 +94,49 @@ sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
     --no-coerce \
     --timeout 120
 
+### Before Running `live` Profile
+
+# AutoRelay - Engagement Scope Template
+# 
+# IMPORTANT: Copy this file to 'scope.yaml' and fill in your authorized targets.
+# Never commit your actual scope.yaml to version control.
+#
+# Usage:
+#   cp scope.example.yaml scope.yaml
+#   nano scope.yaml (edit the IPs)
+#   python autorelay.py --profile live --scope scope.yaml run ...
+
+engagement:
+  client: "Acme Corp"
+  authorized_by: "Jane Doe (CISO)"
+  authorization_ref: "SOW-2026-001"
+  start_date: "2026-01-01"
+  end_date: "2026-12-31"
+
+targets:
+  # The DCs or servers you want to coerce (trick into authenticating)
+  coercion:
+    - 10.10.10.10
+    - 10.10.10.11
+    
+  # The DCs or servers you want to relay the authentication to
+  # (usually the same as the coercion targets, or a high-value server)
+  relay:
+    - 10.10.10.10
+    - 10.10.10.11
+
+# Any IPs or subnets that the tool must NEVER touch
+excluded:
+  - 10.10.10.1          # Firewall
+  - 10.10.10.0/24       # Entire subnet (if you want to be extra safe)
+
+# Operational constraints
+constraints:
+  no_persistence: true
+  no_data_exfil: true
+  no_dos: true
+  working_hours_only: false
+
 Project Structure
 
 autorelay/
