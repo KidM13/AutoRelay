@@ -1,0 +1,7 @@
+# AutoRelay - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+impacket>=0.13.0,<0.14
+pyyaml>=6.0
+rich>=13.0
+pytest>=9.0,<10.0
