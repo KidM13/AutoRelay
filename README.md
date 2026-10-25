@@ -1,111 +1,136 @@
 # AutoRelay
 
-**AutoRelay** is an authorized Active Directory assessment tool designed to automate the lifecycle of an NTLM Relay attack.
+**AutoRelay** is an authorized Active Directory assessment tool designed to automate the NTLM relay assessment workflow.
 
-It handles the entire orchestration process: from reconnaissance and vulnerability scanning, to starting the relay server, firing coercion vectors, and generating professional client-facing reports.
+It coordinates preflight checks, relay server management, coercion modules, and report generation to help security teams assess NTLM relay exposure in authorized environments.
 
 ## Features
 
-*   **Preflight Assessment:** Checks target reachability, SMB signing status, LDAP signing, and coercion vector availability without firing any offensive traffic.
-*   **Relay Orchestration:** Automatically starts and manages `ntlmrelayx` in the background, parsing its output in real-time to detect intercepted sessions.
-*   **Coercion Dispatcher:** Attempts multiple coercion vectors in sequence (PetitPotam, DFSCoerce, PrinterBug), with support for authenticated coercion using compromised credentials.
-*   **Safety Guardrails:** Enforces strict scope files in `live` mode to prevent accidental out-of-scope attacks. Refuses to run if `--yes` is used in production.
-*   **Reporting:** Generates detailed Markdown and HTML reports mapping findings to concrete remediations.
+- **Preflight Assessment:** Checks target reachability, SMB signing, LDAP signing, and coercion availability.
+- **Relay Orchestration:** Manages the relay process and monitors output for intercepted authentication sessions.
+- **Coercion Dispatcher:** Supports multiple coercion techniques, including PetitPotam, DFSCoerce, and PrinterBug, where implemented and available.
+- **Safety Guardrails:** Enforces scope restrictions in live mode to help prevent out-of-scope activity.
+- **Reporting:** Generates assessment reports in Markdown, HTML, and JSON formats, depending on the configured features.
 
 ## Requirements
 
-*   **OS:** Linux (Kali, Ubuntu, Debian) or WSL
-*   **Python:** 3.10 or higher
-*   **Privileges:** Root/Sudo required to bind to privileged ports (445, 80) for the relay server.
+- **Operating system:** Linux (Kali Linux, Ubuntu, or Debian) or WSL.
+- **Python:** 3.10 or higher.
+- **Privileges:** `sudo` may be required for operations that bind to privileged ports, such as TCP port 445.
 
 ## Installation
 
+### 1. Clone the repository
 
-# 1. Clone the repository
-git clone https://github.com/yourusername/autorelay.git
-cd autorelay
+```bash
+git clone https://github.com/KidM13/AutoRelay.git
+cd AutoRelay
+```
 
-# 2. Create a virtual environment
+### 2. Create and activate a virtual environment
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
 
-# 3. Install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
+### 3. Install dependencies
 
-# 4. Verify installation
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 4. Verify the installation
+
+```bash
 python autorelay.py --help
+```
 
-Usage
-AutoRelay has two execution profiles:
+## Usage
 
-goad (Lab): No scope enforcement. Use this for testing against intentionally vulnerable labs (like GOAD).
+AutoRelay provides two execution profiles.
 
-live (Production): Strict scope enforcement. Requires a scope.yaml file and will refuse to attack out-of-scope IPs.
+| Profile | Purpose |
+|---|---|
+| `goad` | Intended for controlled lab environments, such as GOAD. |
+| `live` | Intended for authorized engagements and requires an explicit scope file. |
 
-1. Preflight (Read-Only)
-Check if a target environment is vulnerable to an NTLM relay attack. This command performs no active attacks.
+Use the profile and commands supported by your installed version of AutoRelay. Run assessments only against systems for which you have explicit authorization.
 
+### 1. Preflight assessment (read-only)
+
+Run preflight checks to evaluate the target environment without executing the full relay workflow.
+
+```bash
 python autorelay.py --profile goad preflight \
-    --target 192.168.56.10 \
-    --relay-targets 192.168.56.10 \
-    --html report.html \
-    --json report.json
+  --target 192.168.56.10 \
+  --relay-targets 192.168.56.10 \
+  --html report.html \
+  --json report.json
+```
 
-2. Run (Active Attack)
-Execute the full attack chain: Preflight -> Start Relay -> Fire Coercion -> Catch Session.
+### 2. Prepare the engagement scope
 
-Before running the live profile, you must create a scope file:
+Before using the `live` profile, create a scope file from the provided template.
 
-# Copy the template
+```bash
 cp scope.example.yaml scope.yaml
-
-# Edit the file and add the authorized IPs
 nano scope.yaml
+```
 
-Unauthenticated Coercion (Older/Lab environments):
-This uses PetitPotam or DFSCoerce without credentials. It is often blocked by modern Windows patches.
+Add only the targets covered by your authorization. Keep the actual `scope.yaml` private and do not commit it to version control.
 
-sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
-    --target 10.10.10.5 \
-    --relay-targets 10.10.10.5 \
-    --listener-ip 10.10.10.100 \
-    --timeout 60
+### 3. Run an authorized assessment
 
-Authenticated Coercion (Modern/Patched environments):
-If you have compromised credentials (e.g., a low-privileged user), you can bypass anonymous restrictions on modern Domain Controllers.
+The following examples illustrate the intended command format. Replace the example addresses and account details with values from your authorized lab or engagement.
 
-sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
-    --target 10.10.10.5 \
-    --relay-targets 10.10.10.5 \
-    --listener-ip 10.10.10.100 \
-    --username jdoe \
-    --password 'Password123!' \
-    --domain CORP \
-    --timeout 60
+#### Automated coercion
 
-3. Manual Trigger (For Demos or Blocked Coercion)
-If all coercion vectors are patched on the target (common in Windows Server 2022), you can skip the automated trigger and wait for a manual connection. This is useful for demonstrating the relay engine itself.
+```bash
+sudo .venv/bin/python autorelay.py \
+  --profile live \
+  --scope scope.yaml \
+  run \
+  --target 10.10.10.5 \
+  --relay-targets 10.10.10.5 \
+  --listener-ip 10.10.10.100 \
+  --timeout 60
+```
 
-sudo .venv/bin/python autorelay.py --profile live --scope scope.yaml run \
-    --target 10.10.10.5 \
-    --relay-targets 10.10.10.5 \
-    --listener-ip 10.10.10.100 \
-    --no-coerce \
-    --timeout 120
+Coercion behavior depends on the target configuration, available modules, permissions, and security patches.
 
-### Before Running `live` Profile
+#### Authenticated coercion
 
-# AutoRelay - Engagement Scope Template
-# 
-# IMPORTANT: Copy this file to 'scope.yaml' and fill in your authorized targets.
-# Never commit your actual scope.yaml to version control.
-#
-# Usage:
-#   cp scope.example.yaml scope.yaml
-#   nano scope.yaml (edit the IPs)
-#   python autorelay.py --profile live --scope scope.yaml run ...
+If the implementation supports authenticated coercion, provide authorized test credentials using the options documented by the CLI. Avoid putting real passwords directly into shell history.
 
+Check the available options before running:
+
+```bash
+python autorelay.py run --help
+```
+
+#### Manual trigger mode
+
+If supported by your installed version, `--no-coerce` can be used to disable automated coercion and allow a controlled manual demonstration.
+
+```bash
+sudo .venv/bin/python autorelay.py \
+  --profile live \
+  --scope scope.yaml \
+  run \
+  --target 10.10.10.5 \
+  --relay-targets 10.10.10.5 \
+  --listener-ip 10.10.10.100 \
+  --no-coerce \
+  --timeout 120
+```
+
+## Engagement Scope Configuration
+
+Use `scope.example.yaml` as the starting point for your scope file. The following is an example of valid YAML structure; adjust the fields to match the schema expected by your implementation.
+
+```yaml
 engagement:
   client: "Acme Corp"
   authorized_by: "Jane Doe (CISO)"
@@ -114,54 +139,68 @@ engagement:
   end_date: "2026-12-31"
 
 targets:
-  # The DCs or servers you want to coerce (trick into authenticating)
+  # Systems that may be used as coercion targets
   coercion:
-    - 10.10.10.10
-    - 10.10.10.11
-    
-  # The DCs or servers you want to relay the authentication to
-  # (usually the same as the coercion targets, or a high-value server)
+    - "10.10.10.10"
+    - "10.10.10.11"
+
+  # Systems explicitly authorized as relay targets
   relay:
-    - 10.10.10.10
-    - 10.10.10.11
+    - "10.10.10.10"
+    - "10.10.10.11"
 
-# Any IPs or subnets that the tool must NEVER touch
+# Systems or networks that must never be contacted
 excluded:
-  - 10.10.10.1          # Firewall
-  - 10.10.10.0/24       # Entire subnet (if you want to be extra safe)
+  - "10.10.10.1"       # Firewall
+  - "10.10.10.0/24"    # Example excluded subnet
 
-# Operational constraints
+# Operational restrictions
 constraints:
   no_persistence: true
   no_data_exfil: true
   no_dos: true
   working_hours_only: false
+```
 
-Project Structure
+**Important:** Confirm the exact scope schema in the project implementation before using this example. Never include real engagement credentials or confidential client information in a public repository.
 
-autorelay/
-├── autorelay.py          # CLI entry point and orchestrator
-├── config.py             # Profile loader and scope enforcement
-├── config.yaml           # Profile definitions (goad/live)
-├── scope.example.yaml    # Template for authorization scope
-├── requirements.txt      # Python dependencies
-├── preflight/            # Read-only reconnaissance checks
-├── coercion/             # Coercion vectors (PetitPotam, DFSCoerce, PrinterBug)
-├── relay/                # ntlmrelayx subprocess wrapper
-├── report/               # Markdown and HTML report generation
-└── util/                 # Logging, networking, and helpers
+## Project Structure
 
+```text
+AutoRelay/
+├── autorelay.py              # CLI entry point
+├── config.py                 # Configuration and scope enforcement
+├── config.yaml               # Profile configuration, if used
+├── scope.example.yaml        # Example engagement scope
+├── requirements.txt          # Runtime dependencies
+├── preflight/                # Read-only assessment checks
+├── coercion/                 # Coercion module interfaces and implementations
+├── relay/                    # Relay and assessment components
+├── report/                   # Report generation
+├── util/                     # Logging and networking utilities
+├── tests/                    # Automated tests
+└── docs/
+    ├── SRS.md                # Software Requirements Specification
+    ├── ARCHITECTURE.md       # System architecture
+    └── MODULE_INTERFACES.md  # Component interface documentation
+```
+
+The tree above is representative. Refer to the repository for the current directory structure.
 
 ## Documentation
 
-- [Software Requirements Specification](docs/SRS.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Module Interfaces](docs/MODULE_INTERFACES.md)
-- [Contributing Guidelines](CONTRIBUTING.md)
+- [Software Requirements Specification](https://github.com/KidM13/AutoRelay/blob/main/docs/SRS.md)
+- [Architecture](https://github.com/KidM13/AutoRelay/blob/main/docs/ARCHITECTURE.md)
+- [Module Interfaces](https://github.com/KidM13/AutoRelay/blob/main/docs/MODULE_INTERFACES.md)
+- [Contributing Guidelines](https://github.com/KidM13/AutoRelay/blob/main/CONTRIBUTING.md)
 
-Review the module interfaces before implementing or integrating a component.
-## Authorization
+Review the module interface documentation before implementing or integrating a component.
+
+## Authorization and Safety
 
 AutoRelay is intended only for authorized security assessments and controlled laboratory environments.
 
-Do not use this tool against systems without explicit authorization.
+- Obtain explicit authorization before testing any system.
+- Keep all targets within the approved engagement scope.
+- Do not commit real scope files, credentials, or confidential engagement data.
+- Follow the project's safety controls and applicable rules of engagement.
