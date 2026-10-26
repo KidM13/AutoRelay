@@ -187,6 +187,12 @@ AutoRelay/
 
 The tree above is representative. Refer to the repository for the current directory structure.
 
+## Video of the project
+``` video
+
+   https://drive.google.com/file/d/1rT6l7aJuqatuGDTjSQI7VdZHKFE37g0F/view?usp=sharing
+
+```
 ## Documentation
 
 - [Software Requirements Specification](https://github.com/KidM13/AutoRelay/blob/main/docs/SRS.md)
