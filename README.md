@@ -202,11 +202,19 @@ The tree above is representative. Refer to the repository for the current direct
 
 Review the module interface documentation before implementing or integrating a component.
 
+## Group Members
+```
+Kidus Mulugeta  CTC-394-26
+Firaol worku  ctc-1350-26
+Getnet Yideg  CTC-2197-26
+Kaleb Dereje  CTC-3270-26
+Yonathan Geremew CTC-6559-26
+Raya Herko , CTC-5454-26
+```
 ## Authorization and Safety
 
 AutoRelay is intended only for authorized security assessments and controlled laboratory environments.
 
 - Obtain explicit authorization before testing any system.
 - Keep all targets within the approved engagement scope.
-- Do not commit real scope files, credentials, or confidential engagement data.
 - Follow the project's safety controls and applicable rules of engagement.
